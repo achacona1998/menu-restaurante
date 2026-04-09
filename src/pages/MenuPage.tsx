@@ -1,6 +1,13 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Sparkles, SlidersHorizontal, X } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  Sparkles,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { Header } from "../components/Header";
 import { SectionTabs } from "../components/SectionTabs";
 import { MenuCard } from "../components/MenuCard";
@@ -29,6 +36,9 @@ export function MenuPage() {
   const [query, setQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const featuredScrollerRef = useRef<HTMLDivElement | null>(null);
+  const [canScrollFeaturedLeft, setCanScrollFeaturedLeft] = useState(false);
+  const [canScrollFeaturedRight, setCanScrollFeaturedRight] = useState(false);
   const [toast, setToast] = useState<{
     title: string;
     subtitle?: string;
@@ -112,6 +122,26 @@ export function MenuPage() {
   }, [activeItems, normalizedQuery, selectedTags]);
 
   useEffect(() => {
+    const el = featuredScrollerRef.current;
+    if (!el) return;
+
+    const update = () => {
+      const left = el.scrollLeft;
+      const maxLeft = el.scrollWidth - el.clientWidth;
+      setCanScrollFeaturedLeft(left > 0);
+      setCanScrollFeaturedRight(left < maxLeft - 1);
+    };
+
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      el.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [featuredItems.length]);
+
+  useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 4500);
     return () => clearTimeout(t);
@@ -180,7 +210,7 @@ export function MenuPage() {
 
       {/* Menu Content */}
       <div className="px-4 py-6 mx-auto max-w-4xl">
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 mb-6">
+        <div className="overflow-hidden relative mb-6 rounded-3xl border border-white/10 bg-white/5">
           <div
             className="absolute inset-0 opacity-70"
             style={{
@@ -189,25 +219,25 @@ export function MenuPage() {
               backgroundPosition: "center",
             }}
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-charcoal via-charcoal/70 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r to-transparent from-charcoal via-charcoal/70" />
           <div className="relative p-6 md:p-8">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 border border-white/10 backdrop-blur-md">
+            <div className="inline-flex gap-2 items-center px-3 py-1 rounded-full border backdrop-blur-md bg-black/40 border-white/10">
               <Sparkles className="w-4 h-4 text-gold-400" />
               <span className="text-xs text-white/80">
                 Menú digital · {menuData.restaurantName}
               </span>
             </div>
-            <h1 className="mt-4 text-3xl md:text-4xl font-display font-bold text-white">
+            <h1 className="mt-4 text-3xl font-bold text-white md:text-4xl font-display">
               Experiencia premium, sin esperas.
             </h1>
-            <p className="mt-2 text-white/60 max-w-xl">
+            <p className="mt-2 max-w-xl text-white/60">
               Descubre nuestros platos destacados y arma tu pedido con un toque.
             </p>
-            <div className="mt-5 flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 mt-5">
               <button
                 type="button"
                 onClick={() => setIsCartOpen(true)}
-                className="px-4 py-2 rounded-xl bg-gold-500 hover:bg-gold-400 text-charcoal font-semibold transition-colors">
+                className="px-4 py-2 font-semibold rounded-xl transition-colors bg-gold-500 hover:bg-gold-400 text-charcoal">
                 Ver pedido
               </button>
               <button
@@ -217,7 +247,7 @@ export function MenuPage() {
                   setSelectedTags([]);
                   setIsFiltersOpen(false);
                 }}
-                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 transition-colors">
+                className="px-4 py-2 rounded-xl border transition-colors bg-white/5 hover:bg-white/10 border-white/10 text-white/80">
                 Limpiar filtros
               </button>
             </div>
@@ -226,8 +256,8 @@ export function MenuPage() {
 
         {featuredItems.length > 0 && (
           <div className="mb-8">
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <div className="flex gap-3 justify-between items-center mb-3">
+              <h2 className="flex gap-2 items-center text-lg font-semibold text-white">
                 <Sparkles className="w-5 h-5 text-gold-400" />
                 Destacados
               </h2>
@@ -236,68 +266,102 @@ export function MenuPage() {
               </span>
             </div>
 
-            <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
-              {featuredItems.map((item) => (
+            <div className="relative">
+              {canScrollFeaturedLeft && (
                 <button
-                  key={`featured-${item.id}`}
                   type="button"
-                  onClick={() => setSelectedItem(item)}
-                  className="min-w-[260px] max-w-[260px] text-left glass-card overflow-hidden border border-white/10 hover:border-gold-500/30 transition-colors">
-                  <div className="relative h-32">
-                    <img
-                      src={item.imageUrl}
-                      alt={item.name}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-cover opacity-0 transition-opacity duration-300"
-                      onLoad={(e) => {
-                        e.currentTarget.style.opacity = "1";
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-charcoal/90 to-transparent" />
-                    <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-3">
-                      <span className="text-white font-semibold truncate">
-                        {item.name}
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full bg-gold-500/20 border border-gold-500/30 text-gold-300 text-xs font-semibold">
-                        {formatCurrency(item.price, item.currency)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="p-3">
-                    <p className="text-sm text-white/50 line-clamp-2">
-                      {item.description}
-                    </p>
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <span className="text-xs text-white/40">
-                        {item.tags.slice(0, 2).join(" · ")}
-                      </span>
-                      <span className="text-xs text-gold-400 font-semibold">
-                        Ver más
-                      </span>
-                    </div>
-                  </div>
+                  onClick={() => {
+                    featuredScrollerRef.current?.scrollBy({
+                      left: -320,
+                      behavior: "smooth",
+                    });
+                  }}
+                  className="flex absolute left-2 top-1/2 z-10 justify-center items-center w-10 h-10 rounded-2xl border backdrop-blur-md -translate-y-1/2 bg-charcoal/80 hover:bg-charcoal border-white/10"
+                  aria-label="Ver destacados anteriores">
+                  <ChevronLeft className="w-5 h-5 text-white/80" />
                 </button>
-              ))}
+              )}
+
+              {canScrollFeaturedRight && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    featuredScrollerRef.current?.scrollBy({
+                      left: 320,
+                      behavior: "smooth",
+                    });
+                  }}
+                  className="flex absolute right-2 top-1/2 z-10 justify-center items-center w-10 h-10 rounded-2xl border backdrop-blur-md -translate-y-1/2 bg-charcoal/80 hover:bg-charcoal border-white/10"
+                  aria-label="Ver más destacados">
+                  <ChevronRight className="w-5 h-5 text-white/80" />
+                </button>
+              )}
+
+              <div
+                ref={featuredScrollerRef}
+                className="flex overflow-x-auto gap-3 pr-10 pb-2 scrollbar-hide scroll-smooth">
+                {featuredItems.map((item) => (
+                  <button
+                    key={`featured-${item.id}`}
+                    type="button"
+                    onClick={() => setSelectedItem(item)}
+                    className="min-w-[260px] max-w-[260px] text-left glass-card overflow-hidden border border-white/10 hover:border-gold-500/30 transition-colors">
+                    <div className="relative h-32">
+                      <img
+                        src={item.imageUrl}
+                        alt={item.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="object-cover w-full h-full opacity-0 transition-opacity duration-300"
+                        onLoad={(e) => {
+                          e.currentTarget.style.opacity = "1";
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t to-transparent from-charcoal/90" />
+                      <div className="flex absolute right-3 bottom-3 left-3 gap-3 justify-between items-center">
+                        <span className="font-semibold text-white truncate">
+                          {item.name}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-gold-500/20 border border-gold-500/30 text-gold-300 text-xs font-semibold">
+                          {formatCurrency(item.price, item.currency)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-3">
+                      <p className="text-sm text-white/50 line-clamp-2">
+                        {item.description}
+                      </p>
+                      <div className="flex gap-2 justify-between items-center mt-3">
+                        <span className="text-xs text-white/40">
+                          {item.tags.slice(0, 2).join(" · ")}
+                        </span>
+                        <span className="text-xs font-semibold text-gold-400">
+                          Ver más
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
 
         <div className="mb-6">
-          <div className="flex items-center gap-2">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+          <div className="flex gap-2 items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 w-4 h-4 -translate-y-1/2 text-white/40" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Buscar platos, ingredientes, etiquetas…"
-                className="w-full pl-10 pr-10 py-3 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-gold-500/40"
+                className="py-3 pr-10 pl-10 w-full text-white rounded-2xl border bg-white/5 border-white/10 placeholder:text-white/30 focus:outline-none focus:border-gold-500/40"
               />
               {query.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center"
+                  className="flex absolute right-3 top-1/2 justify-center items-center w-8 h-8 rounded-xl -translate-y-1/2 bg-white/5 hover:bg-white/10"
                   aria-label="Limpiar búsqueda">
                   <X className="w-4 h-4 text-white/60" />
                 </button>
@@ -307,7 +371,7 @@ export function MenuPage() {
             <button
               type="button"
               onClick={() => setIsFiltersOpen((v) => !v)}
-              className="w-12 h-12 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center"
+              className="flex justify-center items-center w-12 h-12 rounded-2xl border bg-white/5 hover:bg-white/10 border-white/10"
               aria-label="Abrir filtros">
               <SlidersHorizontal className="w-5 h-5 text-white/70" />
             </button>
@@ -320,8 +384,8 @@ export function MenuPage() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2 }}
-                className="mt-3 p-3 rounded-2xl bg-white/5 border border-white/10">
-                <div className="flex items-center justify-between gap-3 mb-3">
+                className="p-3 mt-3 rounded-2xl border bg-white/5 border-white/10">
+                <div className="flex gap-3 justify-between items-center mb-3">
                   <div className="text-sm text-white/70">
                     Filtros por etiqueta
                   </div>
@@ -399,24 +463,24 @@ export function MenuPage() {
             transition={{ duration: 0.3 }}
             className="space-y-4">
             {filteredItems.length === 0 ? (
-              <div className="glass-card p-8 text-center">
-                <p className="text-white/70 text-lg font-semibold">
+              <div className="p-8 text-center glass-card">
+                <p className="text-lg font-semibold text-white/70">
                   No hay resultados
                 </p>
-                <p className="text-white/40 mt-2">
+                <p className="mt-2 text-white/40">
                   Prueba con otra búsqueda o quita filtros.
                 </p>
-                <div className="mt-5 flex items-center justify-center gap-2">
+                <div className="flex gap-2 justify-center items-center mt-5">
                   <button
                     type="button"
                     onClick={() => setQuery("")}
-                    className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 transition-colors">
+                    className="px-4 py-2 rounded-xl border transition-colors bg-white/5 hover:bg-white/10 border-white/10 text-white/80">
                     Limpiar búsqueda
                   </button>
                   <button
                     type="button"
                     onClick={() => setSelectedTags([])}
-                    className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 transition-colors">
+                    className="px-4 py-2 rounded-xl border transition-colors bg-white/5 hover:bg-white/10 border-white/10 text-white/80">
                     Quitar filtros
                   </button>
                 </div>
@@ -463,16 +527,16 @@ export function MenuPage() {
             exit={{ opacity: 0, y: 12 }}
             transition={{ duration: 0.2 }}
             className="fixed left-1/2 -translate-x-1/2 z-[60] bottom-24 w-[calc(100%-2rem)] max-w-md">
-            <div className="glass-card border border-white/10 px-4 py-3 flex items-center justify-between gap-3">
+            <div className="flex gap-3 justify-between items-center px-4 py-3 border glass-card border-white/10">
               <div className="min-w-0">
-                <div className="text-white font-semibold">{toast.title}</div>
+                <div className="font-semibold text-white">{toast.title}</div>
                 {toast.subtitle && (
-                  <div className="text-white/50 text-sm truncate">
+                  <div className="text-sm truncate text-white/50">
                     {toast.subtitle}
                   </div>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex gap-2 items-center">
                 {toast.onAction && toast.actionLabel && (
                   <button
                     type="button"
@@ -480,14 +544,14 @@ export function MenuPage() {
                       toast.onAction?.();
                       setToast(null);
                     }}
-                    className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/80">
+                    className="px-3 py-2 rounded-xl border bg-white/5 hover:bg-white/10 border-white/10 text-white/80">
                     {toast.actionLabel}
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() => setToast(null)}
-                  className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center"
+                  className="flex justify-center items-center w-10 h-10 rounded-xl border bg-white/5 hover:bg-white/10 border-white/10"
                   aria-label="Cerrar aviso">
                   <X className="w-4 h-4 text-white/60" />
                 </button>
@@ -504,17 +568,17 @@ export function MenuPage() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 80, opacity: 0 }}
             transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
-            className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-4 pt-3">
+            className="fixed right-0 bottom-0 left-0 z-50 px-4 pt-3 pb-4">
             <div className="mx-auto max-w-4xl">
-              <div className="glass-card border border-white/10 px-4 py-3 flex items-center justify-between gap-3">
+              <div className="flex gap-3 justify-between items-center px-4 py-3 border glass-card border-white/10">
                 <div className="min-w-0">
-                  <div className="text-white/60 text-sm">
+                  <div className="text-sm text-white/60">
                     {totalItems} {totalItems === 1 ? "item" : "items"} en tu
                     pedido
                   </div>
-                  <div className="text-white font-semibold truncate">
+                  <div className="font-semibold text-white truncate">
                     {formatCurrency(totalPrice, menuData.currency)}
-                    <span className="text-white/40 font-normal">
+                    <span className="font-normal text-white/40">
                       {" "}
                       · IVA incl.
                     </span>
@@ -523,7 +587,7 @@ export function MenuPage() {
                 <button
                   type="button"
                   onClick={() => setIsCartOpen(true)}
-                  className="px-4 py-3 rounded-2xl bg-gold-500 hover:bg-gold-400 text-charcoal font-bold transition-colors">
+                  className="px-4 py-3 font-bold rounded-2xl transition-colors bg-gold-500 hover:bg-gold-400 text-charcoal">
                   Ver pedido
                 </button>
               </div>
